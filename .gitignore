@@ -1,0 +1,20 @@
+# Vercel
+.vercel/
+
+# Node (only used for the Vercel CLI)
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Screenshots saved by the app
+christmas_tree_*.png
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
