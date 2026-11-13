@@ -784,7 +784,8 @@
   const renderer = new Renderer(canvas);
   const params = new URLSearchParams(location.search);
   const startT = Math.max(0, parseFloat(params.get('t')) || 0);
-  let t = startT, paused = false, last = performance.now(), lastDraw = 0;
+  // the timeline waits at t=0 behind the start screen until the first tap/key
+  let t = 0, paused = false, started = false, last = performance.now(), lastDraw = 0;
 
   const touch = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
   if (touch) renderer.hint = 'Tap pause   buttons: restart, screenshot';
@@ -851,6 +852,12 @@
 
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (!started) {                             // any key starts; it does nothing else
+      if (e.key === 'Tab' || e.key === 'Shift') return;
+      e.preventDefault();
+      start();
+      return;
+    }
     // a focused button would also react to Space; the keys belong to the tree
     if (document.activeElement instanceof HTMLButtonElement) document.activeElement.blur();
     if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); togglePause(); }
@@ -865,18 +872,21 @@
 
   // ================================================================ music
   // Wham! - Last Christmas, streamed through the official YouTube IFrame
-  // Player API (nothing is downloaded or hosted). Browsers block autoplay with
-  // sound, so the player is only created on the first tap of the music button.
+  // Player API (nothing is downloaded or hosted). The player is created behind
+  // the start screen, so the start tap can call playVideo() directly; browsers
+  // only allow sound to start from a user gesture like that one.
   const VIDEO_ID = 'E8gmARGvPlI';
-  const musicBtn = document.getElementById('btn-music');
+  const muteBtn = document.getElementById('btn-mute');
   const musicBody = musicCard.querySelector('.music-body');
   const musicFallback = musicCard.querySelector('.music-fallback');
-  let player = null, playerReady = false, musicFailed = false, wantPlay = false, apiTimer = 0;
+  let player = null, playerReady = false, musicFailed = false, wantPlay = false, muted = false, apiTimer = 0;
 
-  function setPlaying(on) {
-    musicBtn.setAttribute('aria-pressed', String(on));
-    musicBtn.title = on ? 'Pause music' : 'Play background music';
-    if (on) musicBtn.classList.remove('loading');
+  function setMuted(on) {
+    muted = on;
+    muteBtn.setAttribute('aria-pressed', String(on));
+    const label = on ? 'Unmute music' : 'Mute music';
+    muteBtn.title = label;
+    muteBtn.setAttribute('aria-label', label);
   }
 
   function showCard(show) {
@@ -893,15 +903,21 @@
     player = null;
     musicBody.hidden = true;
     musicFallback.hidden = false;
-    musicBtn.classList.remove('loading');
-    setPlaying(false);
-    fit();
+    muteBtn.hidden = true;
+    showCard(true);
+  }
+
+  function playMusic() {
+    wantPlay = true;
+    if (!playerReady) return;                   // onReady starts it
+    if (!muted) player.unMute();
+    player.playVideo();
   }
 
   function createPlayer() {
     clearTimeout(apiTimer);
-    apiTimer = setTimeout(() => { if (!playerReady) musicFail(); }, 15000);
-    const vars = { autoplay: 1, loop: 1, playlist: VIDEO_ID, playsinline: 1, rel: 0 };
+    apiTimer = setTimeout(() => { if (!playerReady) musicFail(); }, 20000);
+    const vars = { autoplay: 0, loop: 1, playlist: VIDEO_ID, playsinline: 1, rel: 0 };
     if (location.protocol.startsWith('http')) vars.origin = location.origin;
     player = new YT.Player('yt-player', {
       width: '100%',
@@ -909,17 +925,16 @@
       videoId: VIDEO_ID,
       playerVars: vars,
       events: {
-        onReady(e) {
+        onReady() {
           playerReady = true;
           clearTimeout(apiTimer);
-          musicBtn.classList.remove('loading');
-          if (wantPlay) e.target.playVideo();
+          if (wantPlay) playMusic();            // the start tap came before the player was ready
         },
         onStateChange(e) {
           const S = YT.PlayerState;
-          if (e.data === S.PLAYING || e.data === S.BUFFERING) setPlaying(true);
-          else if (e.data === S.ENDED) { e.target.seekTo(0, true); e.target.playVideo(); }   // loop
-          else setPlaying(false);
+          musicCard.dataset.state = e.data === S.PLAYING ? 'playing' : e.data === S.BUFFERING ? 'buffering'
+            : e.data === S.PAUSED ? 'paused' : 'idle';
+          if (e.data === S.ENDED) { e.target.seekTo(0, true); e.target.playVideo(); }   // loop
         },
         onError: musicFail,
       },
@@ -927,7 +942,6 @@
   }
 
   function loadPlayer() {
-    musicBtn.classList.add('loading');
     if (window.YT && window.YT.Player) { createPlayer(); return; }
     window.onYouTubeIframeAPIReady = createPlayer;
     const s = document.createElement('script');
@@ -935,39 +949,30 @@
     s.async = true;
     s.onerror = musicFail;                      // blocked by an extension or offline
     document.head.appendChild(s);
-    apiTimer = setTimeout(() => { if (!playerReady) musicFail(); }, 15000);
+    apiTimer = setTimeout(() => { if (!playerReady) musicFail(); }, 20000);
   }
 
-  function isPlaying() {
-    if (!playerReady || !player.getPlayerState) return false;
-    const st = player.getPlayerState();
-    return st === YT.PlayerState.PLAYING || st === YT.PlayerState.BUFFERING;
-  }
-
-  musicBtn.addEventListener('click', (e) => {
+  muteBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     e.currentTarget.blur();
-    if (musicFailed) { showCard(true); return; }
-    if (!player) {                              // first tap: load and play
-      wantPlay = true;
+    if (musicFailed) return;
+    if (musicCard.hidden) {                     // player was closed: bring it back with sound
+      setMuted(false);
       showCard(true);
-      loadPlayer();
-    } else if (isPlaying()) {
-      wantPlay = false;
-      player.pauseVideo();
-    } else {
-      wantPlay = true;
-      showCard(true);
-      if (playerReady) player.playVideo();
+      playMusic();
+      return;
     }
+    setMuted(!muted);
+    if (!playerReady) return;
+    if (muted) player.mute();
+    else { player.unMute(); if (player.getPlayerState() !== YT.PlayerState.PLAYING) player.playVideo(); }
   });
 
   document.getElementById('music-close').addEventListener('click', (e) => {
     e.stopPropagation();
     wantPlay = false;
-    if (playerReady) player.pauseVideo();
-    setPlaying(false);
-    musicBtn.classList.remove('loading');
+    if (playerReady) player.pauseVideo();       // never play while hidden
+    setMuted(true);
     showCard(false);
   });
 
@@ -980,6 +985,26 @@
     }, 0);
   });
 
+  // ================================================================ start screen
+  // One tap (or any key) starts the tree from t=0 and the song together.
+  const startScreen = document.getElementById('start');
+
+  function start() {
+    if (started) return;
+    started = true;
+    t = startT;
+    paused = false;
+    renderer.reset();
+    last = performance.now();
+    playMusic();                                // inside the user gesture
+    startScreen.classList.add('leaving');
+    setTimeout(() => { startScreen.hidden = true; }, 400);
+  }
+
+  startScreen.addEventListener('click', (e) => { e.stopPropagation(); start(); });
+  startScreen.focus({ preventScroll: true });
+  loadPlayer();
+
   let lastFit = 0;
   function frame(now) {
     requestAnimationFrame(frame);
@@ -988,7 +1013,7 @@
     if (now - lastFit > 500) { lastFit = now; fit(); }   // catch missed resize / rotation events
     const dt = Math.min((now - last) / 1000, 0.1);
     last = now;
-    if (!paused) {
+    if (started && !paused) {
       t += dt;
       if (LOOP && t > T_END) restart();
     }

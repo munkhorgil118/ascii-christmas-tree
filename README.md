@@ -14,21 +14,27 @@ no build step) of the original Python / pygame program in [`python/christmas_tre
 
 | Key / gesture | Action |
 | --- | --- |
+| Tap / any key on the start screen | Start the tree and the music together |
 | `Space` / tap the tree | Pause / resume |
 | `R` / ↻ button | Restart |
 | `S` / ⤓ button | Download a PNG screenshot |
-| ♪ Music button | Play / pause the background music |
+| 🔊 button (top-left) | Mute / unmute the music |
 
-Tip: add `?t=14` to the URL to jump straight to that point of the timeline.
+Tip: add `?t=14` to the URL to start at that point of the timeline.
 
 ## Music
 
-The ♪ Music button plays Wham! - *Last Christmas* from the official YouTube video,
-embedded with the [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference).
-No audio is downloaded or hosted here. Browsers block autoplay with sound, so nothing
-loads until you tap the button; the song then loops. The player stays visible as a small
-card: bottom-right when there is room beside the tree, otherwise below it. If the video
-can't be embedded, the card shows a *Listen on YouTube* link instead.
+The page opens on a *🎄 Tap to start* screen. That one tap (or any key) starts the tree
+from the beginning and Wham! - *Last Christmas* at the same moment. The song comes from
+the official YouTube video, embedded with the
+[YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference);
+no audio is downloaded or hosted here. Browsers only allow sound after a user gesture,
+which is what the start screen is for. The song loops.
+
+The player stays visible (at least 200×200 px, as YouTube requires): bottom-right when
+there is room beside the tree, otherwise as a compact card under it (phones). Its × hides
+it and stops the music; the 🔊 button brings it back. If the video can't be embedded, the
+card shows a *Listen on YouTube* link instead.
 
 ## Run locally
 
