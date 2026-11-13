@@ -5,7 +5,7 @@ The tree grows from the bottom up with a white flash, then the tinsel, baubles,
 170 fairy lights, presents and star appear, and finally **MERRY CHRISTMAS 2026**
 is typed out letter by letter. Snow falls through the whole scene.
 
-**Live demo:** _coming soon_
+**Live demo:** https://ascii-christmas-tree-mauve.vercel.app
 
 It is a static web port (plain HTML + vanilla JavaScript + `<canvas>`, no framework,
 no build step) of the original Python / pygame program in [`python/christmas_tree.py`](python/christmas_tree.py).
