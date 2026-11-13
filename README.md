@@ -17,12 +17,23 @@ no build step) of the original Python / pygame program in [`python/christmas_tre
 | `Space` / tap the tree | Pause / resume |
 | `R` / ↻ button | Restart |
 | `S` / ⤓ button | Download a PNG screenshot |
+| ♪ Music button | Play / pause the background music |
 
 Tip: add `?t=14` to the URL to jump straight to that point of the timeline.
 
+## Music
+
+The ♪ Music button plays Wham! - *Last Christmas* from the official YouTube video,
+embedded with the [YouTube IFrame Player API](https://developers.google.com/youtube/iframe_api_reference).
+No audio is downloaded or hosted here. Browsers block autoplay with sound, so nothing
+loads until you tap the button; the song then loops. The player stays visible as a small
+card: bottom-right when there is room beside the tree, otherwise below it. If the video
+can't be embedded, the card shows a *Listen on YouTube* link instead.
+
 ## Run locally
 
-No install needed. Either open `index.html` directly in a browser, or serve the folder:
+No install needed. Serve the folder over HTTP (opening `index.html` directly from disk
+shows the tree, but the YouTube player doesn't work from `file://`):
 
 ```bash
 python -m http.server 8000

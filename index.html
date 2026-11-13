@@ -21,6 +21,25 @@
       </button>
     </div>
   </main>
+
+  <button id="btn-music" class="music-btn" type="button" aria-pressed="false" title="Play background music">
+    <span class="note" aria-hidden="true">♪</span> Music
+  </button>
+
+  <aside id="music-card" class="music-card" aria-label="Music player" hidden>
+    <div class="music-head">
+      <span class="music-title">Wham! · Last Christmas</span>
+      <button id="music-close" class="music-close" type="button" title="Close player" aria-label="Close music player">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="music-body"><div id="yt-player"></div></div>
+    <div class="music-fallback" hidden>
+      <p>This video can't be played here.</p>
+      <a href="https://www.youtube.com/watch?v=E8gmARGvPlI" target="_blank" rel="noopener noreferrer">Listen on YouTube ↗</a>
+    </div>
+  </aside>
+
   <script src="main.js"></script>
 </body>
 </html>

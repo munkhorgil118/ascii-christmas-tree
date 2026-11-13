@@ -789,14 +789,32 @@
   const touch = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
   if (touch) renderer.hint = 'Tap pause   buttons: restart, screenshot';
 
-  function fit() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    const vv = window.visualViewport;
-    const vw = (vv ? vv.width : window.innerWidth) - 16;
-    const vh = (vv ? vv.height : window.innerHeight) - 16;
+  /** Largest device-pixel cell size whose grid fits in vw x vh CSS px. */
+  function cellSize(vw, vh, dpr) {
     const ratio = CW / CH;
     const chD = Math.max(6, Math.floor(Math.min((vh * dpr) / ROWS, (vw * dpr) / (COLS * ratio))));
     const cwD = Math.max(4, Math.round(chD * ratio));
+    return { chD, cwD, cssW: (COLS * cwD) / dpr };
+  }
+
+  const musicCard = document.getElementById('music-card');
+  const CARD_W = 300;                           // matches .music-card width in style.css
+
+  function fit() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const vv = window.visualViewport;
+    const fullW = vv ? vv.width : window.innerWidth;
+    const fullH = vv ? vv.height : window.innerHeight;
+    const vw = fullW - 16, vh = fullH - 16;
+    let size = cellSize(vw, vh, dpr);
+    if (!musicCard.hidden) {
+      // dock the player beside the tree if it fits there, otherwise put it
+      // below the canvas and shrink the tree so nothing is covered
+      const dock = (fullW - size.cssW) / 2 >= CARD_W + 24;
+      musicCard.classList.toggle('docked', dock);
+      if (!dock) size = cellSize(vw, vh - musicCard.offsetHeight - 12, dpr);
+    }
+    const { chD, cwD } = size;
     if (chD !== renderer.chD || cwD !== renderer.cwD || dpr !== renderer.dpr) {
       renderer.dpr = dpr;
       renderer.resize(cwD, chD, dpr);
@@ -833,6 +851,8 @@
 
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    // a focused button would also react to Space; the keys belong to the tree
+    if (document.activeElement instanceof HTMLButtonElement) document.activeElement.blur();
     if (e.code === 'Space' || e.key === ' ') { e.preventDefault(); togglePause(); }
     else if (e.key === 'r' || e.key === 'R') restart();
     else if (e.key === 's' || e.key === 'S') screenshot();
@@ -842,6 +862,123 @@
   document.getElementById('btn-shot').addEventListener('click', (e) => { e.stopPropagation(); screenshot(); e.currentTarget.blur(); });
   window.addEventListener('resize', fit);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', fit);
+
+  // ================================================================ music
+  // Wham! - Last Christmas, streamed through the official YouTube IFrame
+  // Player API (nothing is downloaded or hosted). Browsers block autoplay with
+  // sound, so the player is only created on the first tap of the music button.
+  const VIDEO_ID = 'E8gmARGvPlI';
+  const musicBtn = document.getElementById('btn-music');
+  const musicBody = musicCard.querySelector('.music-body');
+  const musicFallback = musicCard.querySelector('.music-fallback');
+  let player = null, playerReady = false, musicFailed = false, wantPlay = false, apiTimer = 0;
+
+  function setPlaying(on) {
+    musicBtn.setAttribute('aria-pressed', String(on));
+    musicBtn.title = on ? 'Pause music' : 'Play background music';
+    if (on) musicBtn.classList.remove('loading');
+  }
+
+  function showCard(show) {
+    musicCard.hidden = !show;
+    fit();
+  }
+
+  function musicFail() {
+    if (musicFailed) return;
+    musicFailed = true;
+    wantPlay = false;
+    clearTimeout(apiTimer);
+    try { if (player && player.destroy) player.destroy(); } catch (_) { /* already gone */ }
+    player = null;
+    musicBody.hidden = true;
+    musicFallback.hidden = false;
+    musicBtn.classList.remove('loading');
+    setPlaying(false);
+    fit();
+  }
+
+  function createPlayer() {
+    clearTimeout(apiTimer);
+    apiTimer = setTimeout(() => { if (!playerReady) musicFail(); }, 15000);
+    const vars = { autoplay: 1, loop: 1, playlist: VIDEO_ID, playsinline: 1, rel: 0 };
+    if (location.protocol.startsWith('http')) vars.origin = location.origin;
+    player = new YT.Player('yt-player', {
+      width: '100%',
+      height: '100%',
+      videoId: VIDEO_ID,
+      playerVars: vars,
+      events: {
+        onReady(e) {
+          playerReady = true;
+          clearTimeout(apiTimer);
+          musicBtn.classList.remove('loading');
+          if (wantPlay) e.target.playVideo();
+        },
+        onStateChange(e) {
+          const S = YT.PlayerState;
+          if (e.data === S.PLAYING || e.data === S.BUFFERING) setPlaying(true);
+          else if (e.data === S.ENDED) { e.target.seekTo(0, true); e.target.playVideo(); }   // loop
+          else setPlaying(false);
+        },
+        onError: musicFail,
+      },
+    });
+  }
+
+  function loadPlayer() {
+    musicBtn.classList.add('loading');
+    if (window.YT && window.YT.Player) { createPlayer(); return; }
+    window.onYouTubeIframeAPIReady = createPlayer;
+    const s = document.createElement('script');
+    s.src = 'https://www.youtube.com/iframe_api';
+    s.async = true;
+    s.onerror = musicFail;                      // blocked by an extension or offline
+    document.head.appendChild(s);
+    apiTimer = setTimeout(() => { if (!playerReady) musicFail(); }, 15000);
+  }
+
+  function isPlaying() {
+    if (!playerReady || !player.getPlayerState) return false;
+    const st = player.getPlayerState();
+    return st === YT.PlayerState.PLAYING || st === YT.PlayerState.BUFFERING;
+  }
+
+  musicBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    e.currentTarget.blur();
+    if (musicFailed) { showCard(true); return; }
+    if (!player) {                              // first tap: load and play
+      wantPlay = true;
+      showCard(true);
+      loadPlayer();
+    } else if (isPlaying()) {
+      wantPlay = false;
+      player.pauseVideo();
+    } else {
+      wantPlay = true;
+      showCard(true);
+      if (playerReady) player.playVideo();
+    }
+  });
+
+  document.getElementById('music-close').addEventListener('click', (e) => {
+    e.stopPropagation();
+    wantPlay = false;
+    if (playerReady) player.pauseVideo();
+    setPlaying(false);
+    musicBtn.classList.remove('loading');
+    showCard(false);
+  });
+
+  // clicking inside the YouTube iframe moves keyboard focus into it; hand it
+  // back so Space / R / S keep controlling the tree
+  window.addEventListener('blur', () => {
+    setTimeout(() => {
+      const el = document.activeElement;
+      if (el && el.tagName === 'IFRAME') el.blur();
+    }, 0);
+  });
 
   let lastFit = 0;
   function frame(now) {

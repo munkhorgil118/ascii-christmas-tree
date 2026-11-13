@@ -16,6 +16,8 @@ html, body {
 
 body {
   display: flex;
+  flex-direction: column;
+  gap: 12px;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
@@ -82,3 +84,110 @@ canvas {
 @media (hover: none) and (pointer: coarse) {
   .controls button { opacity: 0.85; width: 40px; height: 40px; }
 }
+
+/* ---------------------------------------------------------------- music */
+.music-btn {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  left: max(10px, env(safe-area-inset-left));
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid rgba(96, 104, 122, 0.45);
+  border-radius: 999px;
+  background: rgba(6, 8, 14, 0.75);
+  color: var(--hud);
+  font: 13px/1 Consolas, Menlo, "DejaVu Sans Mono", monospace;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.music-btn:hover,
+.music-btn:focus-visible,
+.music-btn[aria-pressed="true"] {
+  opacity: 1;
+  color: var(--accent);
+  border-color: var(--accent);
+  outline: none;
+}
+
+.music-btn .note { display: inline-block; font-size: 15px; }
+.music-btn[aria-pressed="true"] .note { animation: bob 0.6s ease-in-out infinite alternate; }
+.music-btn.loading .note { animation: pulse 0.8s ease-in-out infinite alternate; }
+
+@keyframes bob { to { transform: translateY(-3px) rotate(-8deg); } }
+@keyframes pulse { to { opacity: 0.3; } }
+
+/* card: docked bottom-right when there is room beside the tree, otherwise in
+   the page flow below the canvas (main.js decides and shrinks the canvas) */
+.music-card {
+  flex: none;
+  width: min(300px, calc(100vw - 16px));
+  z-index: 10;
+  border: 1px solid rgba(96, 104, 122, 0.45);
+  border-radius: 10px;
+  background: #0b0f1a;
+  overflow: hidden;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+}
+
+.music-card[hidden] { display: none; }
+
+.music-card.docked {
+  position: fixed;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+.music-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  padding: 0 4px 0 10px;
+  color: var(--hud);
+  font: 12px/1 Consolas, Menlo, "DejaVu Sans Mono", monospace;
+}
+
+.music-close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--hud);
+  cursor: pointer;
+}
+
+.music-close:hover,
+.music-close:focus-visible { color: var(--accent); background: rgba(255, 255, 255, 0.06); outline: none; }
+
+.music-close svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* YouTube requires the embedded player to be at least 200x200 */
+.music-body { height: 200px; background: #000; }
+.music-body[hidden] { display: none; }
+.music-body iframe { display: block; width: 100%; height: 100%; border: 0; }
+
+.music-fallback {
+  padding: 4px 12px 14px;
+  color: var(--hud);
+  font: 13px/1.4 Consolas, Menlo, "DejaVu Sans Mono", monospace;
+}
+
+.music-fallback[hidden] { display: none; }
+.music-fallback p { margin: 0 0 8px; }
+.music-fallback a { color: var(--accent); }
